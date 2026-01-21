@@ -1,3 +1,4 @@
+from matplotlib.dates import _epoch
 import torch
 import torch.nn as nn
 from torch.nn import functional as F
@@ -138,7 +139,7 @@ class SimpleLLM(nn.Module):
     def generate(self, idx, max_new_tokens):
         for _ in range(max_new_tokens):
             idx_cond = idx[:, -block_size:]
-            logits, _ = self(idx_cond)
+            logits, _ = model(idx_cond)
             logits = logits[:, -1, :]  # (B, C)
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)  # (B, 1)
@@ -174,8 +175,12 @@ for iter in range(max_iters):
     loss.backward()
     optimizer.step()
 
-torch.save(model.state_dict(), 'simple_llm.pth')
-print("Model saved to simple_llm.pth")
+try:
+    torch.save(model.state_dict(), f'simple_llm_iter_{iter}_loss_{loss:.4f}.pth')
+    print(f"Model saved successfully")
+except Exception as e:
+    print(f"Failed to save model: {e}")
+
 # Generate sample text
 context = torch.zeros((1, 1), dtype=torch.long, device=device)
 generated = model.generate(context, max_new_tokens=500)
