@@ -139,7 +139,7 @@ class SimpleLLM(nn.Module):
     def generate(self, idx, max_new_tokens):
         for _ in range(max_new_tokens):
             idx_cond = idx[:, -block_size:]
-            logits, _ = model(idx_cond)
+            logits, _ = self(idx_cond)
             logits = logits[:, -1, :]  # (B, C)
             probs = F.softmax(logits, dim=-1)
             idx_next = torch.multinomial(probs, num_samples=1)  # (B, 1)
@@ -161,27 +161,28 @@ def estimate_loss():
     model.train()
     return out
 
-model = SimpleLLM().to(device)
-optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
+if __name__ == "__main__":
+    model = SimpleLLM().to(device)
+    optimizer = torch.optim.AdamW(model.parameters(), lr=learning_rate)
 
-for iter in range(max_iters):
-    if iter % eval_interval == 0:
-        losses = estimate_loss()
-        print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
+    for iter in range(max_iters):
+        if iter % eval_interval == 0:
+            losses = estimate_loss()
+            print(f"step {iter}: train loss {losses['train']:.4f}, val loss {losses['val']:.4f}")
 
-    xb, yb = get_batch('train')
-    logits, loss = model(xb, yb)
-    optimizer.zero_grad(set_to_none=True)
-    loss.backward()
-    optimizer.step()
+        xb, yb = get_batch('train')
+        logits, loss = model(xb, yb)
+        optimizer.zero_grad(set_to_none=True)
+        loss.backward()
+        optimizer.step()
 
-try:
-    torch.save(model.state_dict(), f'simple_llm_iter_{iter}_loss_{loss:.4f}.pth')
-    print(f"Model saved successfully")
-except Exception as e:
-    print(f"Failed to save model: {e}")
+    try:
+        torch.save(model.state_dict(), f'simple_llm_iter_{iter}_loss_{loss:.4f}.pth')
+        print(f"Model saved successfully")
+    except Exception as e:
+        print(f"Failed to save model: {e}")
 
-# Generate sample text
-context = torch.zeros((1, 1), dtype=torch.long, device=device)
-generated = model.generate(context, max_new_tokens=500)
-print(decode(generated[0].tolist()))
+    # Generate sample text
+    context = torch.zeros((1, 1), dtype=torch.long, device=device)
+    generated = model.generate(context, max_new_tokens=500)
+    print(decode(generated[0].tolist()))
